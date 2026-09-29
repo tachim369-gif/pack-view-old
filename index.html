@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Pack View</title>
+<meta name="theme-color" content="#0f172a">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png?v=2">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pack View">
+<style>
+  :root{
+    --bg:#0f172a;
+    --card:#1a2438;
+    --card2:#212d47;
+    --accent:#38bdf8;
+    --accent2:#0ea5e9;
+    --danger:#f87171;
+    --warn:#fbbf24;
+    --ok:#4ade80;
+    --text:#e5edf7;
+    --text-card:#e5edf7;
+    --sub:#8b9bb8;
+    --border:#2a3654;
+  }
+  .card, .cal-cell, .memo-item{color:var(--text-card);}
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{height:100%;overflow-x:hidden;width:100%;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    overscroll-behavior:none;
+    padding-top:env(safe-area-inset-top);
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  #app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;}
+  header{
+    padding:18px 20px 10px;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  header h1{font-size:18px;margin:0;font-weight:600;letter-spacing:.02em;display:flex;align-items:center;gap:8px;}
+  header .logo-dot{width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #fca5a5, #f87171);flex-shrink:0;}
+  header .header-right{display:flex;align-items:center;gap:10px;}
+  header .clock{color:var(--text);font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;}
+  header .date{color:var(--text);font-size:14px;font-weight:600;}
+  main{flex:1;padding:0 16px 130px;overflow-y:auto;}
+  .view{display:none;}
+  .view.active{display:block;animation:fade .2s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+
+  .card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:18px;
+    padding:20px;
+    margin-bottom:14px;
+  }
+  .banner{
+    background:linear-gradient(135deg,#3a2a1a,#4a2f1a);
+    border:1px solid #6b4a1f;
+    color:#ffd58a;
+    border-radius:14px;
+    padding:14px 16px;
+    margin-bottom:14px;
+    font-size:14px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .banner button{
+    background:#ffd58a;color:#3a2a1a;border:none;border-radius:10px;
+    padding:8px 12px;font-size:13px;font-weight:600;white-space:nowrap;
+  }
+  .banner.danger{
+    background:linear-gradient(135deg,#3a1a1a,#4a1a1f);
+    border-color:#6b1f2f;
+    color:#ffb3c0;
+  }
+
+  .stat-row{display:flex;gap:12px;}
+  .stat{flex:1;text-align:center;}
+  .stat .num{font-size:30px;font-weight:700;line-height:1.1;}
+  .stat .label{font-size:12px;color:var(--sub);margin-top:4px;}
+
+  .counter-wrap{display:flex;flex-direction:column;align-items:center;padding:10px 0 6px;}
+  .count-big{font-size:64px;font-weight:800;letter-spacing:-.02em;}
+  .count-sub{color:var(--sub);font-size:13px;margin-top:-4px;}
+  .last-touch-card{position:relative;display:flex;align-items:center;justify-content:center;padding:8px 20px;}
+  .last-touch-label{position:absolute;left:20px;color:var(--danger);font-size:18px;letter-spacing:.04em;text-transform:lowercase;}
+  .last-touch-time{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;}
+  .tap-card{position:relative;min-height:270px;}
+  .tap-wrap{position:relative;margin-top:-8px;width:187px;height:187px;}
+  .adjust-btn{
+    position:absolute;top:169px;width:70px;height:70px;border-radius:50%;
+    background:#ffe14d;border:none;color:#3a2a00;
+    font-size:29px;font-weight:800;display:flex;align-items:center;justify-content:center;
+    z-index:2;box-shadow:0 6px 16px rgba(255,225,77,.35);
+  }
+  .adjust-plus{right:11px;}
+  .adjust-reset{
+    left:11px;background:var(--card2);border:2px solid var(--danger);color:var(--danger);
+    font-size:12px;font-weight:800;letter-spacing:.02em;box-shadow:none;
+  }
+  .minus-sign{display:inline-block;transform:scaleX(2);}
+  .tap-btn{
+    margin-top:0;
+    width:187px;height:187px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #fca5a5, #f87171);
+    border:none;color:#4a1414;font-size:20px;font-weight:700;
+    box-shadow:0 10px 30px rgba(248,113,113,.22);
+    display:flex;align-items:center;justify-content:center;flex-direction:column;
+    user-select:none;
+  }
+  .tap-btn:active{transform:scale(.96);}
+  .tap-btn.disabled{
+    background:#2a3654;color:var(--sub);box-shadow:none;
+  }
+  .tap-btn.tap-flash{animation:tapGlow .35s ease-out;}
+  @keyframes tapGlow{
+    0%{transform:scale(1); filter:brightness(1) saturate(1); box-shadow:0 10px 30px rgba(248,113,113,.22), 0 0 0 0 rgba(248,113,113,.85);}
+    30%{transform:scale(1.1); filter:brightness(1.35) saturate(1.7); box-shadow:0 10px 30px rgba(248,113,113,.22), 0 0 25px 26px rgba(248,113,113,.55);}
+    100%{transform:scale(1); filter:brightness(1) saturate(1); box-shadow:0 10px 30px rgba(248,113,113,.22), 0 0 0 0 rgba(248,113,113,0);}
+  }
+  .tap-btn .plus{font-size:90px;line-height:1;font-family:'Helvetica Neue',Helvetica,sans-serif;font-weight:700;}
+  .undo-btn{
+    margin-top:16px;
+    background:transparent;border:1px solid var(--border);color:var(--sub);
+    padding:9px 18px;border-radius:20px;font-size:13px;
+  }
+
+  .row-between{display:flex;align-items:center;justify-content:space-between;}
+  .section-title{font-size:14px;color:var(--sub);margin:0 0 10px;font-weight:600;}
+  .pack-remaining{display:flex;align-items:center;gap:14px;}
+  .pack-remaining .val{font-size:34px;font-weight:700;}
+  .pack-remaining .of{color:var(--sub);font-size:14px;}
+  .icon-btn{
+    background:var(--card2);border:1px solid var(--border);color:var(--text);
+    width:34px;height:34px;border-radius:10px;font-size:16px;display:flex;
+    align-items:center;justify-content:center;
+  }
+  .newpack-btn{
+    margin-top:12px;width:100%;background:var(--card2);border:1px solid var(--border);
+    color:var(--accent);padding:11px;border-radius:12px;font-size:14px;font-weight:600;
+  }
+  .primary-btn{
+    background:var(--accent);border:none;color:#08202f;
+  }
+  .stat .num.accent{color:var(--accent);}
+  .remain-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:6px;margin-top:14px;}
+  .remain-grid .dot{
+    width:100%;aspect-ratio:1/1;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:11px;font-weight:800;
+  }
+  .remain-grid .dot.used{background:var(--danger);color:transparent;}
+  .remain-grid .dot.remaining{background:var(--accent);color:transparent;}
+  .remain-grid .dot.empty{background:var(--sub);opacity:.35;color:transparent;}
+  .pack-history{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px;}
+  .pack-history .box{
+    width:38px;height:38px;border-radius:8px;background:var(--danger);
+    border:1px solid var(--danger);display:flex;align-items:center;justify-content:center;
+    font-size:21px;font-weight:800;color:#2f0808;flex-shrink:0;
+    font-family:'Helvetica Neue',Helvetica,sans-serif;
+  }
+  .pack-history .box.blank{background:var(--card2);border:1px solid var(--border);color:transparent;}
+  .pack-history .box.remain-box{background:var(--accent);border:1px solid var(--accent);color:#062033;}
+  .remain-controls{display:flex;align-items:center;gap:8px;margin-left:auto;}
+  .remain-controls .box.remain-adj{
+    cursor:pointer;user-select:none;border-radius:50%;
+    background:#ffe14d;border:none;color:#3a2a00;
+    box-shadow:0 4px 10px rgba(255,225,77,.35);
+  }
+  .remain-controls .box.remain-adj:active{transform:scale(.9);}
+  .check-line{margin-top:12px;font-size:13px;color:var(--sub);line-height:1.6;}
+  .check-line b{color:var(--text);}
+  .check-warn{color:var(--warn);}
+  .check-danger{color:var(--danger);}
+  .check-ok{color:var(--ok);}
+
+  /* calendar */
+  .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .cal-header .title{font-size:16px;font-weight:700;}
+  .cal-header button{background:var(--card2);border:1px solid var(--border);color:var(--text);width:34px;height:34px;border-radius:10px;font-size:16px;}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+  .cal-dow{text-align:center;font-size:11px;color:var(--sub);padding-bottom:4px;}
+  .cal-cell{
+    aspect-ratio:1/1;border-radius:10px;background:var(--card);border:1px solid var(--border);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;
+    position:relative;
+  }
+  .cal-cell.empty{background:transparent;border:none;}
+  .cal-cell .d{font-size:11px;color:var(--sub);position:absolute;top:4px;left:6px;}
+  .cal-cell .c{font-size:16px;font-weight:700;margin-top:6px;}
+  .cal-cell.today{border-color:var(--accent);}
+  .cal-cell .memo-dot{position:absolute;bottom:5px;right:7px;width:5px;height:5px;border-radius:50%;background:var(--accent);}
+  .cal-cell.over-goal .c{color:var(--danger);}
+  .cal-stats{font-size:12px;color:var(--sub);margin-top:12px;padding-top:12px;border-top:1px solid var(--border);}
+  .cal-stats b{color:var(--text);font-size:14px;}
+
+  /* memo */
+  .memo-item{
+    background:var(--card);border:1px solid var(--border);border-radius:14px;
+    padding:14px 16px;margin-bottom:10px;
+  }
+  .memo-item .memo-date{font-size:12px;color:var(--sub);margin-bottom:4px;font-weight:600;}
+  .memo-item .memo-text{font-size:14px;color:var(--text);white-space:pre-wrap;line-height:1.5;}
+
+  /* settings */
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:13px;color:var(--sub);margin-bottom:8px;}
+  .field .stepper{display:flex;align-items:center;gap:14px;}
+  .field .stepper .n{font-size:26px;font-weight:700;min-width:52px;text-align:center;}
+  .field .stepper button{width:38px;height:38px;border-radius:10px;background:var(--card2);border:1px solid var(--border);color:var(--text);font-size:18px;}
+  .field input[type=number]{width:100%;background:var(--card2);border:1px solid var(--border);color:var(--text);font-size:18px;padding:10px 14px;border-radius:10px;}
+  .chart-bar{fill:var(--accent);}
+  .chart-bar.over{fill:var(--danger);}
+  .theme-swatches{display:flex;gap:14px;}
+  .theme-swatches .swatch{
+    width:40px;height:40px;border-radius:50%;border:2px solid transparent;
+    box-shadow:0 0 0 1px var(--border);cursor:pointer;
+  }
+  .theme-swatches .swatch.active{border-color:var(--accent);}
+
+  nav{
+    position:fixed;bottom:0;left:0;right:0;
+    background:rgba(15,23,42,.92);backdrop-filter:blur(10px);
+    border-top:1px solid var(--border);
+    display:flex;justify-content:center;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  nav .inner{max-width:480px;width:100%;display:flex;}
+  nav button{
+    flex:1;background:none;border:none;color:var(--sub);padding:12px 0 10px;
+    font-size:11px;display:flex;flex-direction:column;align-items:center;gap:4px;
+  }
+  nav button .ic{font-size:20px;}
+  nav button.active{color:var(--accent);}
+
+  .modal-bg{
+    position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;
+    align-items:flex-end;justify-content:center;z-index:50;
+  }
+  .modal-bg.show{display:flex;}
+  .modal{
+    position:relative;background:var(--card);border-radius:20px 20px 0 0;padding:22px 20px calc(24px + env(safe-area-inset-bottom));
+    width:100%;max-width:480px;max-height:80vh;overflow-y:auto;border:1px solid var(--border);border-bottom:none;
+  }
+  .modal h3{margin:0 0 14px;font-size:16px;}
+  .modal input[type=number]{
+    width:100%;background:var(--card2);border:1px solid var(--border);color:var(--text);
+    font-size:22px;padding:12px 14px;border-radius:12px;text-align:center;margin-bottom:14px;
+  }
+  .modal textarea{
+    width:100%;background:var(--card2);border:1px solid var(--border);color:var(--text);
+    font-size:15px;padding:12px 14px;border-radius:12px;margin-bottom:14px;font-family:inherit;
+    resize:vertical;min-height:70px;
+  }
+  .modal .btns{display:flex;gap:10px;}
+  .modal .btns button{
+    flex:1;padding:13px;border-radius:12px;border:none;font-size:15px;font-weight:600;
+  }
+  .modal .btns .cancel{background:var(--card2);color:var(--text);}
+  .modal .btns .save{background:var(--accent);color:#08202f;}
+  .close-x{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--sub);font-size:20px;}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1><span class="logo-dot"></span>Pack View</h1>
+    <div class="header-right">
+      <div class="date" id="headerDate"></div>
+      <div class="clock" id="headerClock"></div>
+    </div>
+  </header>
+
+  <main>
+    <!-- HOME -->
+    <section class="view active" id="view-home">
+      <div id="homeBanner"></div>
+
+      <div class="card">
+        <div class="remain-grid" id="remainGrid"></div>
+        <div class="pack-history" id="packHistory"></div>
+        <span id="startRemainVal" style="display:none;"></span>
+        <span id="remainVal" style="display:none;"></span>
+        <span id="packSizeVal" style="display:none;"></span>
+      </div>
+
+      <div class="card tap-card">
+        <button class="adjust-btn adjust-plus" id="minusBtn"><span class="minus-sign">−</span></button>
+        <button class="adjust-btn adjust-reset" id="resetBtn">RESET</button>
+        <div class="counter-wrap">
+          <span id="todayCount" style="display:none;"></span>
+          <div class="tap-wrap">
+            <button class="tap-btn" id="tapBtn">
+              <span class="plus" id="tapBtnCount">0</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card last-touch-card">
+        <div class="last-touch-label">last touch</div>
+        <div class="last-touch-time" id="lastTouchTime">－－:－－</div>
+      </div>
+    </section>
+
+    <!-- CALENDAR -->
+    <section class="view" id="view-cal">
+      <div class="cal-header">
+        <button id="prevMonth">‹</button>
+        <div class="title" id="calTitle">2026年8月</div>
+        <button id="nextMonth">›</button>
+      </div>
+      <div class="cal-grid" id="calDow"></div>
+      <div class="cal-grid" id="calGrid" style="margin-top:6px;"></div>
+      <div class="cal-stats" id="calStats"></div>
+      <div id="calChart" style="margin-top:14px;"></div>
+    </section>
+
+    <!-- MEMO -->
+    <section class="view" id="view-memo">
+      <div class="section-title">メモ一覧</div>
+      <div id="memoList"></div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view" id="view-settings">
+      <div class="card">
+        <div class="field">
+          <label>1箱あたりの本数</label>
+          <div class="stepper">
+            <button id="packSizeDec">−</button>
+            <div class="n" id="packSizeSetting">20</div>
+            <button id="packSizeInc">+</button>
+          </div>
+        </div>
+        <div class="check-line">ご利用のタバコ・電子タバコの1箱あたりの本数に合わせて設定してください。</div>
+      </div>
+      <div class="card">
+        <div class="field">
+          <label>1日の開始時間</label>
+          <div class="stepper">
+            <button id="dayStartDec">−</button>
+            <div class="n" id="dayStartSetting">0:00</div>
+            <button id="dayStartInc">+</button>
+          </div>
+        </div>
+        <div class="check-line">この時刻より前のカウントは前日のデータとして扱われます。例えば5:00に設定すると、2:00に吸った分は前日のカウントになります。</div>
+      </div>
+      <div class="card">
+        <div class="field">
+          <label>1日の目標本数</label>
+          <div class="stepper">
+            <button id="goalDec">−</button>
+            <div class="n" id="dailyGoalSetting">20</div>
+            <button id="goalInc">+</button>
+          </div>
+        </div>
+        <div class="check-line">目標本数を超えた日はカレンダーの数字が赤で表示され、超過日数としてカウントされます。</div>
+      </div>
+      <div class="card">
+        <div class="field">
+          <label>1箱あたりの価格（円）</label>
+          <input type="number" id="pricePerPackInput" inputmode="numeric" placeholder="0">
+        </div>
+        <div class="check-line">カレンダーの月間支出の基礎数値になります。</div>
+      </div>
+      <div class="card">
+        <div class="section-title" style="margin:0 0 10px">テーマ</div>
+        <div class="theme-swatches" id="themeSwatches"></div>
+      </div>
+      <div class="card">
+        <div class="section-title" style="margin:0 0 6px">データ</div>
+        <div class="check-line">データはこの端末のブラウザ内に保存されます。</div>
+      </div>
+      <div class="card">
+        <div class="section-title" style="margin:0 0 6px">オールリセット</div>
+        <div class="check-line">この端末のブラウザ内の全てのデータが削除されます。</div>
+        <button id="allResetBtn" class="action-btn reset" style="margin-top:12px;width:100%;padding:12px 0;border-radius:12px;font-size:13px;font-weight:800;letter-spacing:.03em;border:1px solid #5a2a33;background:var(--card2);color:var(--danger);">全データを削除する</button>
+      </div>
+      <div class="card">
+        <div class="section-title" style="margin:0 0 6px">バックアップ</div>
+        <div class="check-line">データをこの端末のブラウザ外のファイルに保存したり、保存したファイルから復元したりできます。</div>
+        <div style="display:flex;gap:10px;margin-top:12px;">
+          <button id="backupExportBtn" style="flex:1;padding:12px 0;border-radius:12px;font-size:13px;font-weight:800;letter-spacing:.03em;border:1px solid var(--border);background:var(--card2);color:var(--text);">保存</button>
+          <button id="backupImportBtn" style="flex:1;padding:12px 0;border-radius:12px;font-size:13px;font-weight:800;letter-spacing:.03em;border:1px solid var(--border);background:var(--card2);color:var(--text);">復元</button>
+        </div>
+        <input type="file" id="backupImportInput" accept="application/json,.json" style="display:none;">
+      </div>
+    </section>
+  </main>
+
+  <nav>
+    <div class="inner">
+      <button class="navbtn active" data-view="home"><span class="ic">●</span>ホーム</button>
+      <button class="navbtn" data-view="cal"><span class="ic">▦</span>カレンダー</button>
+      <button class="navbtn" data-view="memo"><span class="ic">✎</span>メモ</button>
+      <button class="navbtn" data-view="settings"><span class="ic">⚙</span>設定</button>
+    </div>
+  </nav>
+</div>
+
+<!-- start modal (used for RESET on home, and tapping "today" in the calendar) -->
+<div class="modal-bg" id="startModalBg">
+  <div class="modal">
+    <button class="close-x" id="startModalClose">✕</button>
+    <h3>本日の状況を入力</h3>
+    <label style="display:block;font-size:13px;color:var(--sub);margin-bottom:8px;">本日の喫煙本数</label>
+    <input type="number" id="startCountInput" inputmode="numeric">
+    <label style="display:block;font-size:13px;color:var(--sub);margin-bottom:8px;">パッケージ内残数</label>
+    <input type="number" id="startRemainInput" inputmode="numeric">
+    <div class="btns">
+      <button class="cancel" id="startModalCancel">キャンセル</button>
+      <button class="save" id="startModalSave">START</button>
+    </div>
+  </div>
+</div>
+
+<!-- day detail modal (used for any date: past/today/future, count + memo) -->
+<div class="modal-bg" id="dayModalBg">
+  <div class="modal">
+    <button class="close-x" id="dayModalClose">✕</button>
+    <h3 id="dayModalTitle">8月15日</h3>
+    <div id="dayCountField">
+      <label style="display:block;font-size:13px;color:var(--sub);margin-bottom:8px;">本数</label>
+      <input type="number" id="dayCountInput" inputmode="numeric">
+    </div>
+    <label style="display:block;font-size:13px;color:var(--sub);margin-bottom:8px;">メモ</label>
+    <textarea id="dayMemoInput" placeholder="メモを入力"></textarea>
+    <div class="btns">
+      <button class="save" id="dayCountSave" style="width:100%;">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'smokeTrackerData_v1';
+
+const THEMES = {
+  dark:  { bg:'#0f172a', card:'#1a2438', card2:'#212d47', accent:'#38bdf8', accent2:'#0ea5e9', danger:'#f87171', warn:'#fbbf24', ok:'#4ade80', text:'#e5edf7', textCard:'#e5edf7', sub:'#8b9bb8', border:'#2a3654' },
+  white: { bg:'#ffffff', card:'#f7f7f8', card2:'#ececee', accent:'#0ea5e9', accent2:'#0284c7', danger:'#e11d48', warn:'#d97706', ok:'#16a34a', text:'#111318', textCard:'#111318', sub:'#6b7280', border:'#dcdfe4' },
+  black: { bg:'#000000', card:'#ffffff', card2:'#f0f0f0', accent:'#0ea5e9', accent2:'#0284c7', danger:'#e11d48', warn:'#d97706', ok:'#16a34a', text:'#f2f2f2', textCard:'#111318', sub:'#8a8a8a', border:'#e0e0e0' },
+  beige: { bg:'#e8ddc4', card:'#f6efdd', card2:'#efe6cd', accent:'#0ea5e9', accent2:'#0284c7', danger:'#e11d48', warn:'#b45309', ok:'#15803d', text:'#3a2f1e', textCard:'#3a2f1e', sub:'#8a7a5c', border:'#d8cba7' },
+  ivory: { bg:'#f2ead0', card:'#fbf7e8', card2:'#f5efd9', accent:'#0ea5e9', accent2:'#0284c7', danger:'#e11d48', warn:'#b45309', ok:'#15803d', text:'#3a2f1e', textCard:'#0f172a', sub:'#7a6a52', border:'#e2e8f0' },
+};
+function applyTheme(name){
+  const t = THEMES[name] || THEMES.dark;
+  const root = document.documentElement.style;
+  root.setProperty('--bg', t.bg);
+  root.setProperty('--card', t.card);
+  root.setProperty('--card2', t.card2);
+  root.setProperty('--accent', t.accent);
+  root.setProperty('--accent2', t.accent2);
+  root.setProperty('--danger', t.danger);
+  root.setProperty('--warn', t.warn);
+  root.setProperty('--ok', t.ok);
+  root.setProperty('--text', t.text);
+  root.setProperty('--text-card', t.textCard);
+  root.setProperty('--sub', t.sub);
+  root.setProperty('--border', t.border);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if(meta) meta.setAttribute('content', t.bg);
+}
+
+function loadData(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      const d = JSON.parse(raw);
+      if(typeof d.activePackSize !== 'number') d.activePackSize = null;
+      if(typeof d.activePackTaps !== 'number') d.activePackTaps = 0;
+      if(typeof d.dailyGoal !== 'number') d.dailyGoal = 20;
+      if(typeof d.dayStartHour !== 'number') d.dayStartHour = 0;
+      if(typeof d.pricePerPack !== 'number') d.pricePerPack = 0;
+      if(typeof d.packSize !== 'number' || d.packSize < 1) d.packSize = 20;
+      if(typeof d.theme !== 'string') d.theme = 'dark';
+      return d;
+    }
+  }catch(e){}
+  return { packSize: 20, days: {}, activePackSize: null, activePackTaps: 0, dailyGoal: 20, dayStartHour: 0, pricePerPack: 0, theme: 'dark' };
+}
+function saveData(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+
+function pad(n){ return n.toString().padStart(2,'0'); }
+function dateKey(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function effectiveNow(){
+  const d = new Date();
+  if(data.dayStartHour > 0 && d.getHours() < data.dayStartHour){
+    d.setDate(d.getDate() - 1);
+  }
+  return d;
+}
+function todayKey(){ return dateKey(effectiveNow()); }
+function fmtHeaderDate(){
+  const d = effectiveNow();
+  const w = ['日','月','火','水','木','金','土'][d.getDay()];
+  return `${d.getMonth()+1}月${d.getDate()}日(${w})`;
+}
+
+let data = loadData();
+
+function ensureToday(){
+  const key = todayKey();
+  const existing = data.days[key];
+  // "not initialized" covers both a brand-new day and a day that only exists
+  // as a future memo placeholder (created by tapping a not-yet-arrived date
+  // on the calendar) whose currentRemaining was never set.
+  const needsInit = !existing || existing.currentRemaining === null || existing.currentRemaining === undefined;
+  if(needsInit){
+    // find most recent PAST day (strictly before today, with a real
+    // currentRemaining) to carry over remaining -- future-dated memo-only
+    // placeholders must never be used for this lookup.
+    const pastKeys = Object.keys(data.days)
+      .filter(k => k < key && data.days[k].currentRemaining !== null && data.days[k].currentRemaining !== undefined)
+      .sort();
+    let carry = data.packSize;
+    if(pastKeys.length){
+      const last = data.days[pastKeys[pastKeys.length-1]];
+      carry = Math.max(last.currentRemaining, 0);
+      if(carry <= 0) carry = data.packSize;
+    }
+    const existingMemo = (existing && typeof existing.memo === 'string') ? existing.memo : '';
+    data.days[key] = {
+      count: 0,
+      taps: [],
+      startRemaining: carry,
+      currentRemaining: carry,
+      packHistory: [],
+      activePackTaps: 0,
+      memo: existingMemo
+    };
+    saveData();
+  }
+  const day = data.days[key];
+  if(!Array.isArray(day.packHistory)) day.packHistory = [];
+  if(typeof day.activePackTaps !== 'number') day.activePackTaps = 0;
+  if(typeof day.memo !== 'string') day.memo = '';
+  return day;
+}
+
+function ensureActivePackSize(day){
+  if(data.activePackSize === null || data.activePackSize === undefined){
+    data.activePackSize = day.currentRemaining;
+  }
+  return data.activePackSize;
+}
+
+function finishPackAndRefill(day){
+  // called right when a pack has just run out (currentRemaining hit 0)
+  ensureActivePackSize(day);
+  day.packHistory.push({ size: data.activePackSize, todayTaps: day.activePackTaps });
+  data.activePackSize = data.packSize;
+  data.activePackTaps = 0;
+  day.activePackTaps = 0;
+  day.currentRemaining = data.packSize;
+}
+
+/* ---------- HOME RENDER ---------- */
+function renderHome(){
+  const key = todayKey();
+  const day = ensureToday();
+  ensureActivePackSize(day);
+  document.getElementById('headerDate').textContent = fmtHeaderDate();
+  document.getElementById('todayCount').textContent = day.count;
+  document.getElementById('tapBtnCount').textContent = day.count;
+  const lastTouchEl = document.getElementById('lastTouchTime');
+  let lastTouchSource = day.lastTouch;
+  if(!lastTouchSource){
+    // today has no touch yet -- fall back to the most recent past day's
+    // last touch, so the panel doesn't blank out at the start of each day.
+    const pastTouchKeys = Object.keys(data.days)
+      .filter(k => k < key && data.days[k].lastTouch)
+      .sort();
+    if(pastTouchKeys.length){
+      lastTouchSource = data.days[pastTouchKeys[pastTouchKeys.length-1]].lastTouch;
+    }
+  }
+  if(lastTouchSource){
+    const t = new Date(lastTouchSource);
+    lastTouchEl.textContent = `${pad(t.getHours())}:${pad(t.getMinutes())}`;
+  } else {
+    lastTouchEl.textContent = '－－:－－';
+  }
+  document.getElementById('remainVal').textContent = Math.max(day.currentRemaining,0);
+  document.getElementById('startRemainVal').textContent = day.startRemaining;
+  document.getElementById('packSizeVal').textContent = data.packSize;
+
+  const grid = document.getElementById('remainGrid');
+  const gridTotal = Math.max(data.packSize, data.activePackSize, day.currentRemaining, 1);
+  const usedToday = Math.max(day.activePackTaps, 0);
+  const usedBeforeToday = Math.max((data.activePackTaps || 0) - usedToday, 0);
+  const grayCount = Math.max(gridTotal - data.activePackSize, 0) + usedBeforeToday;
+  const redCount = usedToday;
+  grid.innerHTML = '';
+  for(let i=0;i<gridTotal;i++){
+    const dot = document.createElement('div');
+    if(i < grayCount){
+      dot.className = 'dot empty';
+    } else if(i < grayCount + redCount){
+      dot.className = 'dot used';
+    } else {
+      dot.className = 'dot remaining';
+    }
+    grid.appendChild(dot);
+  }
+  const historyEl = document.getElementById('packHistory');
+  historyEl.innerHTML = '';
+  const boxValues = day.packHistory.map(h=>h.todayTaps).concat([day.activePackTaps]);
+  boxValues.forEach(val=>{
+    const box = document.createElement('div');
+    if(val > 0){
+      box.className = 'box';
+      box.textContent = val;
+    } else {
+      box.className = 'box blank';
+    }
+    historyEl.appendChild(box);
+  });
+  const remainWrap = document.createElement('div');
+  remainWrap.className = 'remain-controls';
+
+  const plusBox = document.createElement('div');
+  plusBox.className = 'box remain-box remain-adj';
+  plusBox.textContent = '＋';
+  plusBox.addEventListener('click', doUndo); // ＋ = 残数が増える(直前のタップを取り消す)
+
+  const remainBox = document.createElement('div');
+  remainBox.className = 'box remain-box';
+  remainBox.textContent = Math.max(day.currentRemaining, 0);
+
+  const minusBox = document.createElement('div');
+  minusBox.className = 'box remain-box remain-adj';
+  minusBox.textContent = '－';
+  minusBox.addEventListener('click', ()=>doTap(false)); // － = 残数が減る(1本記録、エフェクトなし)
+
+  remainWrap.appendChild(plusBox);
+  remainWrap.appendChild(remainBox);
+  remainWrap.appendChild(minusBox);
+  historyEl.appendChild(remainWrap);
+
+  document.getElementById('homeBanner').innerHTML = '';
+
+}
+
+function doTap(withEffect){
+  if(withEffect !== false){
+    const btn = document.getElementById('tapBtn');
+    btn.classList.remove('tap-flash');
+    // force reflow so the animation restarts even on rapid consecutive taps
+    void btn.offsetWidth;
+    btn.classList.add('tap-flash');
+  }
+  const day = ensureToday();
+  ensureActivePackSize(day);
+  day.count++;
+  data.activePackTaps = (data.activePackTaps || 0) + 1;
+  day.activePackTaps = (day.activePackTaps || 0) + 1;
+  day.currentRemaining = Math.max(day.currentRemaining - 1, 0);
+  if(day.currentRemaining <= 0){
+    finishPackAndRefill(day);
+  }
+  day.taps.push(new Date().toISOString());
+  day.lastTouch = new Date().toISOString();
+  saveData();
+  renderHome();
+  if(document.getElementById('view-cal').classList.contains('active')) renderCalendar();
+}
+
+function doUndo(){
+  const day = ensureToday();
+  if(day.count <= 0) return;
+  if(day.activePackTaps > 0){
+    day.count--;
+    data.activePackTaps = Math.max((data.activePackTaps || 0) - 1, 0);
+    day.activePackTaps--;
+    day.currentRemaining++;
+  } else if(day.packHistory.length > 0){
+    const prev = day.packHistory.pop();
+    data.activePackSize = prev.size;
+    data.activePackTaps = Math.max(prev.size - 1, 0);
+    day.activePackTaps = Math.max(prev.todayTaps - 1, 0);
+    day.currentRemaining = 1;
+    day.count--;
+  } else {
+    return;
+  }
+  day.taps.pop();
+  day.lastTouch = new Date().toISOString();
+  saveData();
+  renderHome();
+  if(document.getElementById('view-cal').classList.contains('active')) renderCalendar();
+}
+
+document.getElementById('tapBtn').addEventListener('click', doTap);
+document.getElementById('tapBtn').addEventListener('animationend', (e)=>{
+  // remove the flash class once its animation finishes, so switching views
+  // (which hides/shows this button via display:none) doesn't replay it
+  if(e.animationName === 'tapGlow') e.target.classList.remove('tap-flash');
+});
+document.getElementById('minusBtn').addEventListener('click', doUndo);
+
+function openStartModal(){
+  const day = ensureToday();
+  document.getElementById('startCountInput').value = day.count;
+  document.getElementById('startRemainInput').value = Math.max(day.currentRemaining, 0);
+  document.getElementById('startModalBg').classList.add('show');
+}
+document.getElementById('resetBtn').addEventListener('click', openStartModal);
+
+const startModalBg = document.getElementById('startModalBg');
+function closeStartModal(){ startModalBg.classList.remove('show'); }
+document.getElementById('startModalClose').addEventListener('click', closeStartModal);
+document.getElementById('startModalCancel').addEventListener('click', closeStartModal);
+startModalBg.addEventListener('click', (e)=>{ if(e.target.id === 'startModalBg') closeStartModal(); });
+document.getElementById('startModalSave').addEventListener('click', ()=>{
+  const day = ensureToday();
+  const cv = parseInt(document.getElementById('startCountInput').value, 10);
+  const rv = parseInt(document.getElementById('startRemainInput').value, 10);
+  const todayCount = isNaN(cv) ? 0 : Math.max(cv, 0);
+  const newRemain = isNaN(rv) ? 0 : Math.max(rv, 0);
+  const packSize = data.packSize;
+
+  day.packHistory = [];
+
+  if(todayCount === 0){
+    // nothing smoked today: just (re)open a pack at newRemain
+    data.activePackSize = newRemain > 0 ? newRemain : packSize;
+    data.activePackTaps = 0;
+    day.activePackTaps = 0;
+  } else {
+    // Derive how many packs were finished purely from the entered numbers
+    // (today's count + current remaining), not from any previously stored
+    // state -- so manual entry is self-consistent even if stored state drifted.
+    const raw = newRemain + todayCount;
+    const k = Math.max(Math.floor((raw - 1) / packSize), 0); // packs fully finished before the live one
+    const oldRemaining = raw - k * packSize; // how much was left before today's smoking started
+
+    let remainingToConsume = todayCount;
+    if(k >= 1){
+      day.packHistory.push({ size: packSize, todayTaps: oldRemaining });
+      remainingToConsume -= oldRemaining;
+      for(let i = 1; i < k; i++){
+        day.packHistory.push({ size: packSize, todayTaps: packSize });
+        remainingToConsume -= packSize;
+      }
+    }
+    // remainingToConsume is now the taps in the currently-open (live) pack
+    data.activePackSize = newRemain + remainingToConsume;
+    data.activePackTaps = remainingToConsume;
+    day.activePackTaps = remainingToConsume;
+  }
+
+  day.startRemaining = newRemain;
+  day.currentRemaining = newRemain;
+  day.count = todayCount;
+  day.taps = [];
+  day.lastTouch = new Date().toISOString();
+  saveData();
+  closeStartModal();
+  renderHome();
+  if(document.getElementById('view-cal').classList.contains('active')) renderCalendar();
+});
+
+/* ---------- CALENDAR ---------- */
+let calDate = effectiveNow();
+
+function renderCalendarDow(){
+  const dow = document.getElementById('calDow');
+  dow.innerHTML = ['日','月','火','水','木','金','土'].map(d=>`<div class="cal-dow">${d}</div>`).join('');
+}
+
+function renderCalendar(){
+  document.getElementById('calTitle').textContent = `${calDate.getFullYear()}年${calDate.getMonth()+1}月`;
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+  const year = calDate.getFullYear();
+  const month = calDate.getMonth();
+  const firstDow = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const tKey = todayKey();
+
+  for(let i=0;i<firstDow;i++){
+    const empty = document.createElement('div');
+    empty.className = 'cal-cell empty';
+    grid.appendChild(empty);
+  }
+  for(let d=1; d<=daysInMonth; d++){
+    const dt = new Date(year, month, d);
+    const key = dateKey(dt);
+    const cell = document.createElement('div');
+    cell.className = 'cal-cell';
+    if(key === tKey) cell.classList.add('today');
+    const rec = data.days[key];
+    let countHtml = '<span style="color:var(--sub)">-</span>';
+    let hasMemo = false;
+    if(rec){
+      if(rec.count !== null && rec.count !== undefined){
+        countHtml = rec.count;
+        if(data.dailyGoal > 0 && rec.count > data.dailyGoal) cell.classList.add('over-goal');
+      }
+      hasMemo = !!(rec.memo && rec.memo.trim().length > 0);
+    }
+    cell.innerHTML = `<span class="d">${d}</span><span class="c">${countHtml}</span>${hasMemo ? '<span class="memo-dot"></span>' : ''}`;
+    if(key > tKey){
+      cell.style.opacity = '.55';
+    }
+    cell.addEventListener('click', ()=>{
+      showDayModal(key, dt);
+    });
+    grid.appendChild(cell);
+  }
+
+  const monthPrefix = `${year}-${pad(month+1)}-`;
+  const monthKeys = Object.keys(data.days).filter(k => k.startsWith(monthPrefix) && data.days[k].count !== null && data.days[k].count !== undefined);
+  const statsEl = document.getElementById('calStats');
+  const total = monthKeys.reduce((a,k)=>a + (data.days[k].count || 0), 0);
+  const avg = monthKeys.length ? (total / monthKeys.length).toFixed(1) : '0.0';
+  let statsHtml = `記録日数 <b>${monthKeys.length}</b>日`;
+  if(data.dailyGoal > 0){
+    const overCount = monthKeys.filter(k => data.days[k].count > data.dailyGoal).length;
+    statsHtml += `　超過日数 <b style="color:var(--danger)">${overCount}</b>日`;
+    const achievedCount = monthKeys.filter(k => data.days[k].count <= data.dailyGoal).length;
+    statsHtml += `　達成日数 <b>${achievedCount}/${monthKeys.length}</b>日`;
+  }
+  statsHtml += `<br>月間合計 <b>${total}</b>本/月　月間平均 <b>${avg}</b>本/日`;
+  if(data.pricePerPack > 0){
+    const costPerCig = data.pricePerPack / 20;
+    const monthCost = Math.round(total * costPerCig);
+    const avgCost = monthKeys.length ? Math.round(monthCost / monthKeys.length) : 0;
+    statsHtml += `<br>月間支出 <b>¥${monthCost.toLocaleString()}</b>/月　月間平均 <b>¥${avgCost.toLocaleString()}</b>/日`;
+  }
+  statsEl.innerHTML = statsHtml;
+
+  renderTrendChart(year, month, daysInMonth);
+}
+
+function renderTrendChart(year, month, daysInMonth){
+  const chartEl = document.getElementById('calChart');
+  const counts = [];
+  for(let d=1; d<=daysInMonth; d++){
+    const key = dateKey(new Date(year, month, d));
+    const rec = data.days[key];
+    counts.push(rec ? rec.count : null);
+  }
+  const maxCount = Math.max(1, data.dailyGoal, ...counts.map(c => c || 0));
+  const W = 320, H = 100, padB = 4, padT = 6;
+  const slot = W / daysInMonth;
+  const barW = Math.max(slot - 2, 1);
+  let bars = '';
+  counts.forEach((c, i) => {
+    if(c === null) return;
+    const x = i * slot + (slot - barW) / 2;
+    const h = c > 0 ? Math.max((c / maxCount) * (H - padT - padB), 2) : 2;
+    const y = H - padB - h;
+    const over = data.dailyGoal > 0 && c > data.dailyGoal;
+    bars += `<rect class="chart-bar${over ? ' over' : ''}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="1.5"></rect>`;
+  });
+  let goalLine = '';
+  if(data.dailyGoal > 0){
+    const gy = H - padB - (data.dailyGoal / maxCount) * (H - padT - padB);
+    goalLine = `<line x1="0" y1="${gy.toFixed(1)}" x2="${W}" y2="${gy.toFixed(1)}" stroke="var(--sub)" stroke-width="1" stroke-dasharray="3,3"></line>`;
+  }
+  const axisLine = `<line x1="0" y1="${H-padB}" x2="${W}" y2="${H-padB}" stroke="var(--border)" stroke-width="1"></line>`;
+  chartEl.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:100px;display:block;">${axisLine}${goalLine}${bars}</svg>`;
+}
+
+let currentModalDayKey = null;
+let currentModalIsFuture = false;
+function showDayModal(key, dt){
+  currentModalDayKey = key;
+  const tKey = todayKey();
+  currentModalIsFuture = key > tKey;
+  const isToday = key === tKey;
+  const hideCount = currentModalIsFuture || isToday;
+  const rec = data.days[key];
+  document.getElementById('dayModalTitle').textContent = `${dt.getMonth()+1}月${dt.getDate()}日`;
+  document.getElementById('dayCountField').style.display = hideCount ? 'none' : '';
+  document.getElementById('dayCountInput').value = (rec && rec.count !== null && rec.count !== undefined) ? rec.count : '';
+  document.getElementById('dayMemoInput').value = rec && rec.memo ? rec.memo : '';
+  document.getElementById('dayModalBg').classList.add('show');
+}
+document.getElementById('dayCountSave').addEventListener('click', ()=>{
+  if(!currentModalDayKey) return;
+  const memoVal = document.getElementById('dayMemoInput').value;
+  const isToday = currentModalDayKey === todayKey();
+
+  if(isToday){
+    // today's count / 残数 / パック履歴はタップ操作とRESETで一貫管理されているため、
+    // カレンダー経由ではメモのみ編集する(本数を書き換えない)
+    const day = ensureToday();
+    day.memo = memoVal;
+  } else if(currentModalIsFuture){
+    if(memoVal.trim() === ''){
+      delete data.days[currentModalDayKey];
+    } else {
+      let rec = data.days[currentModalDayKey];
+      if(!rec){
+        rec = { count: null, taps: [], startRemaining: null, currentRemaining: null, packHistory: [], activePackTaps: 0, memo: '' };
+        data.days[currentModalDayKey] = rec;
+      }
+      rec.memo = memoVal;
+    }
+  } else {
+    const raw = document.getElementById('dayCountInput').value;
+    const isBlank = raw.trim() === '';
+    if(isBlank && memoVal.trim() === ''){
+      // nothing recorded for this day: clear it entirely so the calendar shows blank
+      delete data.days[currentModalDayKey];
+    } else {
+      let rec = data.days[currentModalDayKey];
+      if(!rec){
+        rec = { count: null, taps: [], startRemaining: null, currentRemaining: null, packHistory: [], activePackTaps: 0, memo: '' };
+        data.days[currentModalDayKey] = rec;
+      }
+      if(isBlank){
+        rec.count = null;
+      } else {
+        const v = parseInt(raw, 10);
+        rec.count = isNaN(v) ? rec.count : Math.max(v, 0);
+      }
+      rec.memo = memoVal;
+    }
+  }
+  saveData();
+  document.getElementById('dayModalBg').classList.remove('show');
+  renderCalendar();
+  renderHome();
+  if(document.getElementById('view-memo').classList.contains('active')) renderMemoView();
+});
+document.getElementById('dayModalClose').addEventListener('click', ()=>{
+  document.getElementById('dayModalBg').classList.remove('show');
+});
+document.getElementById('dayModalBg').addEventListener('click', (e)=>{
+  if(e.target.id === 'dayModalBg') e.target.classList.remove('show');
+});
+
+document.getElementById('prevMonth').addEventListener('click', ()=>{
+  // 日にちを1日に固定してから月を変える(31日などで短い月をスキップするのを防ぐ)
+  calDate.setDate(1);
+  calDate.setMonth(calDate.getMonth()-1);
+  renderCalendar();
+});
+document.getElementById('nextMonth').addEventListener('click', ()=>{
+  calDate.setDate(1);
+  calDate.setMonth(calDate.getMonth()+1);
+  renderCalendar();
+});
+
+/* ---------- MEMO ---------- */
+function renderMemoView(){
+  const listEl = document.getElementById('memoList');
+  const keys = Object.keys(data.days)
+    .filter(k => data.days[k].memo && data.days[k].memo.trim().length > 0)
+    .sort()
+    .reverse();
+  if(keys.length === 0){
+    listEl.innerHTML = '<div class="check-line">まだメモがありません。</div>';
+    return;
+  }
+  listEl.innerHTML = '';
+  keys.forEach(key=>{
+    const rec = data.days[key];
+    const [y, m, d] = key.split('-').map(Number);
+    const item = document.createElement('div');
+    item.className = 'memo-item';
+    const dateEl = document.createElement('div');
+    dateEl.className = 'memo-date';
+    dateEl.textContent = `${y}年${m}月${d}日`;
+    const textEl = document.createElement('div');
+    textEl.className = 'memo-text';
+    textEl.textContent = rec.memo;
+    item.appendChild(dateEl);
+    item.appendChild(textEl);
+    item.addEventListener('click', ()=>{
+      showDayModal(key, new Date(y, m-1, d));
+    });
+    listEl.appendChild(item);
+  });
+}
+
+/* ---------- SETTINGS ---------- */
+function renderSettings(){
+  document.getElementById('packSizeSetting').textContent = data.packSize;
+  document.getElementById('dailyGoalSetting').textContent = data.dailyGoal;
+  document.getElementById('dayStartSetting').textContent = `${data.dayStartHour}:00`;
+  document.getElementById('pricePerPackInput').value = data.pricePerPack > 0 ? data.pricePerPack : '';
+
+  const swatchWrap = document.getElementById('themeSwatches');
+  swatchWrap.innerHTML = '';
+  Object.keys(THEMES).forEach(name=>{
+    const t = THEMES[name];
+    const sw = document.createElement('div');
+    sw.className = 'swatch' + (data.theme === name ? ' active' : '');
+    sw.style.background = t.bg;
+    sw.addEventListener('click', ()=>{
+      data.theme = name;
+      saveData();
+      applyTheme(name);
+      renderSettings();
+    });
+    swatchWrap.appendChild(sw);
+  });
+}
+document.getElementById('packSizeDec').addEventListener('click', ()=>{
+  data.packSize = Math.max(1, data.packSize - 1);
+  saveData();
+  renderSettings();
+  renderHome();
+  if(document.getElementById('view-cal').classList.contains('active')) renderCalendar();
+});
+document.getElementById('packSizeInc').addEventListener('click', ()=>{
+  data.packSize = Math.min(60, data.packSize + 1);
+  saveData();
+  renderSettings();
+  renderHome();
+  if(document.getElementById('view-cal').classList.contains('active')) renderCalendar();
+});
+document.getElementById('pricePerPackInput').addEventListener('input', ()=>{
+  const v = parseInt(document.getElementById('pricePerPackInput').value, 10);
+  data.pricePerPack = isNaN(v) ? 0 : Math.max(v, 0);
+  saveData();
+  if(document.getElementById('view-cal').classList.contains('active')) renderCalendar();
+});
+document.getElementById('dayStartDec').addEventListener('click', ()=>{
+  data.dayStartHour = Math.max(0, data.dayStartHour - 1);
+  saveData();
+  renderSettings();
+  renderHome();
+  if(document.getElementById('view-cal').classList.contains('active')) renderCalendar();
+});
+document.getElementById('dayStartInc').addEventListener('click', ()=>{
+  data.dayStartHour = Math.min(23, data.dayStartHour + 1);
+  saveData();
+  renderSettings();
+  renderHome();
+  if(document.getElementById('view-cal').classList.contains('active')) renderCalendar();
+});
+document.getElementById('goalDec').addEventListener('click', ()=>{
+  data.dailyGoal = Math.max(0, data.dailyGoal - 1);
+  saveData();
+  renderSettings();
+});
+document.getElementById('goalInc').addEventListener('click', ()=>{
+  data.dailyGoal = data.dailyGoal + 1;
+  saveData();
+  renderSettings();
+});
+
+document.getElementById('allResetBtn').addEventListener('click', ()=>{
+  const ok1 = confirm('本当によろしいですか？必要に応じバックアップを行なってください。');
+  if(!ok1) return;
+  const ok2 = confirm('もう一度確認します。全データ削除を実行しますか？この操作は元に戻せません。');
+  if(!ok2) return;
+  localStorage.removeItem(STORAGE_KEY);
+  data = { packSize: 20, days: {}, activePackSize: null, activePackTaps: 0, dailyGoal: 20, dayStartHour: 0, pricePerPack: 0, theme: 'dark' };
+  saveData();
+  currentModalDayKey = null;
+  renderHome();
+  renderSettings();
+  if(document.getElementById('view-cal').classList.contains('active')) renderCalendar();
+});
+
+/* ---------- BACKUP ---------- */
+document.getElementById('backupExportBtn').addEventListener('click', async ()=>{
+  const json = JSON.stringify(data, null, 2);
+  const now = new Date();
+  const fname = `packview_backup_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}.json`;
+  const file = new File([json], fname, { type: 'application/json' });
+
+  // iOS Safari: share the file directly (skips the document-preview screen)
+  if(navigator.canShare && navigator.canShare({ files: [file] })){
+    try{
+      await navigator.share({ files: [file], title: fname });
+      return;
+    } catch(err){
+      if(err && err.name === 'AbortError') return; // user cancelled the share sheet -- do nothing
+      // otherwise fall through to the download link below
+    }
+  }
+
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fname;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+});
+
+document.getElementById('backupImportBtn').addEventListener('click', ()=>{
+  document.getElementById('backupImportInput').click();
+});
+
+document.getElementById('backupImportInput').addEventListener('change', (e)=>{
+  const file = e.target.files && e.target.files[0];
+  e.target.value = ''; // allow re-selecting the same file later
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    let parsed;
+    try{
+      parsed = JSON.parse(reader.result);
+    } catch(err){
+      alert('このファイルは読み込めませんでした（JSON形式ではありません）。');
+      return;
+    }
+    if(!parsed || typeof parsed !== 'object' || typeof parsed.days !== 'object' || typeof parsed.packSize !== 'number'){
+      alert('このファイルはPack Viewのバックアップ形式ではないようです。');
+      return;
+    }
+    const ok1 = confirm('現在のデータを、このファイルの内容で上書きします。よろしいですか？');
+    if(!ok1) return;
+    const ok2 = confirm('もう一度確認します。今のデータは失われます。復元を実行しますか？');
+    if(!ok2) return;
+    data = parsed;
+    saveData();
+    currentModalDayKey = null;
+    renderHome();
+    renderSettings();
+    if(document.getElementById('view-cal').classList.contains('active')) renderCalendar();
+    if(document.getElementById('view-memo').classList.contains('active')) renderMemoView();
+    alert('復元しました。');
+  };
+  reader.readAsText(file);
+});
+
+/* ---------- NAV ---------- */
+const VIEW_ORDER = ['home', 'cal', 'memo', 'settings'];
+function switchView(view){
+  document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active', b.dataset.view === view));
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+view).classList.add('active');
+  if(view === 'cal') renderCalendar();
+  if(view === 'memo') renderMemoView();
+  if(view === 'settings') renderSettings();
+  if(view === 'home') renderHome();
+}
+document.querySelectorAll('.navbtn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    switchView(btn.dataset.view);
+  });
+});
+
+/* ---------- SWIPE BETWEEN VIEWS ---------- */
+(function(){
+  const mainEl = document.querySelector('main');
+  let touchStartX = 0, touchStartY = 0, touchActive = false;
+  mainEl.addEventListener('touchstart', (e)=>{
+    if(e.touches.length !== 1) return;
+    // ignore swipes that start inside a modal
+    if(document.querySelector('.modal-bg.show')) return;
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    touchActive = true;
+  }, { passive: true });
+  mainEl.addEventListener('touchend', (e)=>{
+    if(!touchActive) return;
+    touchActive = false;
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    if(Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    const activeView = document.querySelector('.view.active').id.replace('view-', '');
+    const idx = VIEW_ORDER.indexOf(activeView);
+    if(idx === -1) return;
+    if(dx < 0 && idx < VIEW_ORDER.length - 1){
+      switchView(VIEW_ORDER[idx + 1]);
+    } else if(dx > 0 && idx > 0){
+      switchView(VIEW_ORDER[idx - 1]);
+    }
+  }, { passive: true });
+})();
+
+/* ---------- HEADER CLOCK ---------- */
+function updateHeaderClock(){
+  const now = new Date();
+  document.getElementById('headerClock').textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
+updateHeaderClock();
+setInterval(updateHeaderClock, 1000);
+
+/* ---------- INIT ---------- */
+applyTheme(data.theme);
+renderCalendarDow();
+renderHome();
+renderSettings();
+
+/* register service worker for installability */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
